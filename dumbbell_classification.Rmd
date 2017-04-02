@@ -1,0 +1,150 @@
+---
+title: 'Practical machine learning: classifying proper/incorrect execution of dumbbell curls'
+author: "M. Ovaska"
+date: "2 April 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache=TRUE, warning = FALSE, message = FALSE)
+```
+
+# Summary
+The goal of this study is to use data from sensors to classify whether
+individuals are performing dumbbell curls correctly (class A), or in one
+of four incorrect ways (classes B-E), such as throwing the elbows to the front or
+lifting the dumbbell only halfway. The sensors were attached to the individuals'
+arms, forearms, waist, and to the dumbbell. 
+
+52 predictors are identified and selected, and a Random Forest algorithm is trained
+on a set of 13737 training examples. The optimal number of variables considered
+at each tree split (mtry) is determined by considering the out-of-bag error
+for a range of values on forests of 100 trees. The final model is then trained
+using 1000 trees. The overall misclassification error on a test set of 5885
+observations is approximately 0.5%. 
+
+For more information on the data, see the original paper: 
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H.
+Qualitative Activity Recognition of Weight Lifting Exercises.
+Proceedings of 4th International Conference in Cooperation with SIGCHI
+(Augmented Human '13). Stuttgart, Germany: ACM SIGCHI, 2013.
+http://groupware.les.inf.puc-rio.br/work.jsf?p1=11201
+
+
+# Loading and preprocessing the data
+
+First we load up the data and check for missing data (NA's, empty strings) etc. 
+The goal is to find variables that are useful for training a machine learning 
+algorithm.
+
+```{r load data}
+full_data <- read.csv("pml-training.csv", stringsAsFactors = FALSE)
+dim(full_data)
+# Get number of NA's in numeric columns, and "" in character-type columns:
+missing_data <- sapply(1:length(full_data), 
+                       function(x){
+                           if(is.numeric(full_data[, x])){
+                               return(sum(is.na(full_data[, x])))
+                           }
+                           else if(is.character(full_data[, x])){
+                               return(sum(full_data[, x] == ""))
+                           }
+                       })
+
+table(missing_data)
+```
+
+100 variables consist mainly of missing data (19216/19622), while the
+rest of the variables have all data present. Imputing is not sensible in this
+case, so we remove the columns with any NA's or empty strings. We also drop the
+first 7 columns, which contrain timestamps, identifiers etc. 
+
+```{r remove data}
+remove_cols <- c(1:7, which(missing_data > 0))
+data <- full_data[, -remove_cols]
+names(data)
+```
+
+We end up with 52 numeric variables and the ```classe``` variable, which we want
+to predict. We turn ```classe``` into a factor variable and separate the data
+into a training set (70 %) and a test set (30 %).
+
+```{r training and test}
+data$classe <- factor(data$classe)
+library(caret)
+inTrain <- createDataPartition(data$classe, p=0.7, list=FALSE)
+training <- data[inTrain,]
+testing <- data[-inTrain,]
+```
+
+# Training and testing a Random Forest algorithm
+
+We use the Random Forest algorithm in the ```randomForest``` package through the 
+```caret``` package's ```train``` function. The main tunable parameters are the
+number of trees to
+train (typically more is better, but it takes more time), and the number of
+variables that are considered for each split in a tree, labeled ```mtry```. 
+For classification problems with $N$ variables, a typical value is 
+mtry = $\sqrt N$. We scan the range ```mtry=1,4,7,...,52``` for trees of
+size ```ntree=100``` to find the optimal value. For a random forest, we can
+use the out-of-bag error ("oob") instead of normal cross-validation to assess
+the model performance during training.
+
+```{r train}
+set.seed(100)
+rfGrid <- expand.grid(mtry=seq(1,52,3))
+trCont <- trainControl(method="oob")
+rfModel <- train(classe~., data=training, method="rf", tuneGrid=rfGrid,
+               ntree=100, trControl=trCont)
+rfModel
+```
+
+```{r plot oob accuracy}
+library(ggplot2)
+ggplot(data=rfModel$results, aes(x=mtry, y=Accuracy)) +
+    geom_point(size=4, col="firebrick3") + 
+    geom_path(lwd=1, col="grey25") + 
+    ggtitle("Out-of-bag prediction accuracy for 100 trees") + 
+    theme_bw(base_size=14)
+```
+
+The optimal value is found to be ```mtry=10```, although there is little difference
+between this and the adjacent values. Finally we train one larger forest with
+```ntree=1000``` and test this with the test set that we haven't touched yet.
+
+```{r final model}
+set.seed(100)
+rfGrid <- expand.grid(mtry=c(10))
+trCont <- trainControl(method="oob")
+rfModelFinal <- train(classe~., data=training, method="rf", tuneGrid=rfGrid,
+               ntree=1000, trControl=trCont)
+
+confusionMatrix(testing$classe, predict(rfModelFinal, testing))
+```
+
+The overall misclassification error on the test set is approximately 0.5 %.
+Let's have a look at the most important variables, with respect to the decrease
+in Gini index:
+
+```{r variable importance, fig.height=8, fig.width=9}
+importance <- as.data.frame(rfModelFinal$finalModel$importance)
+importance$variable <- rownames(importance)
+ggplot(data=importance, aes(x=reorder(variable, MeanDecreaseGini), y=MeanDecreaseGini)) +
+    geom_col(fill="firebrick3") +
+    coord_flip() +
+    xlab("") +
+    ylab("Mean decrease in Gini index") +
+    ggtitle("Relative importance of variables") +
+    theme_bw(base_size = 14)
+
+```
+
+Finally we can also predict the class of the 20 additional testing cases:
+
+```{r final testing}
+final_testing <- read.csv("pml-testing.csv", stringsAsFactors = FALSE)
+final_testing <- final_testing[, -remove_cols]
+predict(rfModelFinal, final_testing)
+```
+
+
