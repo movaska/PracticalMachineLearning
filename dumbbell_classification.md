@@ -104,6 +104,7 @@ into a training set (70 %) and a test set (30 %).
 ```r
 data$classe <- factor(data$classe)
 library(caret)
+set.seed(100)
 inTrain <- createDataPartition(data$classe, p=0.7, list=FALSE)
 training <- data[inTrain,]
 testing <- data[-inTrain,]
@@ -143,27 +144,27 @@ rfModel
 ## Resampling results across tuning parameters:
 ## 
 ##   mtry  Accuracy   Kappa    
-##    1    0.9855136  0.9816714
-##    4    0.9922836  0.9902389
-##    7    0.9922108  0.9901464
-##   10    0.9932300  0.9914358
-##   13    0.9925020  0.9905143
-##   16    0.9927932  0.9908834
-##   19    0.9928660  0.9909755
-##   22    0.9922108  0.9901462
-##   25    0.9919196  0.9897780
-##   28    0.9915557  0.9893172
-##   31    0.9914101  0.9891340
-##   34    0.9904637  0.9879361
-##   37    0.9898813  0.9871995
-##   40    0.9892262  0.9863704
-##   43    0.9900997  0.9874755
-##   46    0.9901725  0.9875666
-##   49    0.9891534  0.9862775
-##   52    0.9891534  0.9862774
+##    1    0.9842032  0.9800130
+##    4    0.9921380  0.9900544
+##    7    0.9938851  0.9922652
+##   10    0.9934484  0.9917124
+##   13    0.9934484  0.9917127
+##   16    0.9928660  0.9909755
+##   19    0.9925748  0.9906070
+##   22    0.9917012  0.9895028
+##   25    0.9914829  0.9892260
+##   28    0.9907549  0.9883050
+##   31    0.9908277  0.9883970
+##   34    0.9899541  0.9872916
+##   37    0.9895902  0.9868319
+##   40    0.9881342  0.9849898
+##   43    0.9877703  0.9845289
+##   46    0.9862415  0.9825950
+##   49    0.9860231  0.9823185
+##   52    0.9839121  0.9796479
 ## 
 ## Accuracy was used to select the optimal model using  the largest value.
-## The final value used for the model was mtry = 10.
+## The final value used for the model was mtry = 7.
 ```
 
 
@@ -176,16 +177,16 @@ ggplot(data=rfModel$results, aes(x=mtry, y=Accuracy)) +
     theme_bw(base_size=14)
 ```
 
-![](dumbbell_classification_files/figure-html/plot oob accuracy-1.png)<!-- -->
+![](dumbbell_classification_files/figure-html/plot_oob_accuracy-1.png)<!-- -->
 
-The optimal value is found to be ```mtry=10```, although there is little difference
+The optimal value is found to be ```mtry=7```, although there is little difference
 between this and the adjacent values. Finally we train one larger forest with
 ```ntree=1000``` and test this with the test set that we haven't touched yet.
 
 
 ```r
 set.seed(100)
-rfGrid <- expand.grid(mtry=c(10))
+rfGrid <- expand.grid(mtry=c(7))
 trCont <- trainControl(method="oob")
 rfModelFinal <- train(classe~., data=training, method="rf", tuneGrid=rfGrid,
                ntree=1000, trControl=trCont)
@@ -198,33 +199,33 @@ confusionMatrix(testing$classe, predict(rfModelFinal, testing))
 ## 
 ##           Reference
 ## Prediction    A    B    C    D    E
-##          A 1673    0    0    0    1
-##          B   10 1128    1    0    0
-##          C    0    8 1018    0    0
-##          D    0    0    9  953    2
-##          E    0    0    1    0 1081
+##          A 1673    1    0    0    0
+##          B    6 1133    0    0    0
+##          C    0    3 1021    2    0
+##          D    0    0    9  954    1
+##          E    0    0    3    0 1079
 ## 
 ## Overall Statistics
 ##                                           
-##                Accuracy : 0.9946          
-##                  95% CI : (0.9923, 0.9963)
-##     No Information Rate : 0.286           
+##                Accuracy : 0.9958          
+##                  95% CI : (0.9937, 0.9972)
+##     No Information Rate : 0.2853          
 ##     P-Value [Acc > NIR] : < 2.2e-16       
 ##                                           
-##                   Kappa : 0.9931          
+##                   Kappa : 0.9946          
 ##  Mcnemar's Test P-Value : NA              
 ## 
 ## Statistics by Class:
 ## 
 ##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.9941   0.9930   0.9893   1.0000   0.9972
-## Specificity            0.9998   0.9977   0.9984   0.9978   0.9998
-## Pos Pred Value         0.9994   0.9903   0.9922   0.9886   0.9991
-## Neg Pred Value         0.9976   0.9983   0.9977   1.0000   0.9994
-## Prevalence             0.2860   0.1930   0.1749   0.1619   0.1842
-## Detection Rate         0.2843   0.1917   0.1730   0.1619   0.1837
+## Sensitivity            0.9964   0.9965   0.9884   0.9979   0.9991
+## Specificity            0.9998   0.9987   0.9990   0.9980   0.9994
+## Pos Pred Value         0.9994   0.9947   0.9951   0.9896   0.9972
+## Neg Pred Value         0.9986   0.9992   0.9975   0.9996   0.9998
+## Prevalence             0.2853   0.1932   0.1755   0.1624   0.1835
+## Detection Rate         0.2843   0.1925   0.1735   0.1621   0.1833
 ## Detection Prevalence   0.2845   0.1935   0.1743   0.1638   0.1839
-## Balanced Accuracy      0.9969   0.9953   0.9938   0.9989   0.9985
+## Balanced Accuracy      0.9981   0.9976   0.9937   0.9979   0.9992
 ```
 
 The overall misclassification error on the test set is approximately 0.5 %.
@@ -244,7 +245,7 @@ ggplot(data=importance, aes(x=reorder(variable, MeanDecreaseGini), y=MeanDecreas
     theme_bw(base_size = 14)
 ```
 
-![](dumbbell_classification_files/figure-html/variable importance-1.png)<!-- -->
+![](dumbbell_classification_files/figure-html/variable_importance-1.png)<!-- -->
 
 Finally we can also predict the class of the 20 additional testing cases:
 
