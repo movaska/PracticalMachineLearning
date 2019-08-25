@@ -230,7 +230,7 @@ confusionMatrix(testing$classe, predict(rfModelFinal, testing))
 
 The overall misclassification error on the test set is approximately 0.5 %.
 Let's have a look at the most important variables, with respect to the decrease
-in Gini index:
+in Gini impurity:
 
 
 ```r
@@ -240,7 +240,7 @@ ggplot(data=importance, aes(x=reorder(variable, MeanDecreaseGini), y=MeanDecreas
     geom_col(fill="firebrick3") +
     coord_flip() +
     xlab("") +
-    ylab("Mean decrease in Gini index") +
+    ylab("Mean decrease in Gini impurity") +
     ggtitle("Relative importance of variables") +
     theme_bw(base_size = 14)
 ```
